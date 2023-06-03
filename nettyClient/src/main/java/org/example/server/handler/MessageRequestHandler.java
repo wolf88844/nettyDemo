@@ -19,11 +19,24 @@ public class MessageRequestHandler extends SimpleChannelInboundHandler<MessageRe
         System.out.println(channel.id()+"收到消息");
         Session session = SessionUtil.getSession(channel);
         MessageResponsePacket messageResponsePacket = receiveMessage(session, messageRequestPacket);
-        Channel toChannel = SessionUtil.getChannel(messageRequestPacket.getToUserId());
+        String toUserId = SessionUtil.getUserId(messageRequestPacket.getToUserName());
+        if(null==toUserId){
+            System.err.println("["+messageRequestPacket.getToUserName()+"]不在线，发送失败");
+            messageResponsePacket.setFromUserId("");
+            messageResponsePacket.setFromUserName("admin");
+            messageResponsePacket.setMsg("["+messageRequestPacket.getToUserName()+"]不在线，发送失败");
+            channelHandlerContext.channel().writeAndFlush(messageResponsePacket);
+            return;
+        }
+        Channel toChannel = SessionUtil.getChannel(toUserId);
         if(toChannel!=null && SessionUtil.hasLogin(toChannel)){
             toChannel.writeAndFlush(messageResponsePacket);
         }else{
-            System.err.println("["+messageRequestPacket.getToUserId()+"]不在线，发送失败");
+            System.err.println("["+messageRequestPacket.getToUserName()+"]不在线，发送失败");
+            messageResponsePacket.setFromUserId("");
+            messageResponsePacket.setFromUserName("admin");
+            messageResponsePacket.setMsg("["+messageRequestPacket.getToUserName()+"]不在线，发送失败");
+            channelHandlerContext.channel().writeAndFlush(messageResponsePacket);
         }
     }
 

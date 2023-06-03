@@ -1,17 +1,15 @@
 package org.example.protocol.request;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 import org.example.protocol.Packet;
 import org.example.protocol.command.Command;
 
+import java.util.List;
 @Data
-@AllArgsConstructor
-public class MessageRequestPacket extends Packet {
-    private String toUserName;
-    private String msg;
+public class CreateGroupRequestPacket extends Packet {
+    private List<String> userNameList;
     @Override
     public Byte getCommand() {
-        return Command.MESSAGE_REQUEST;
+        return Command.CREATEGROUP_REQUEST;
     }
 }

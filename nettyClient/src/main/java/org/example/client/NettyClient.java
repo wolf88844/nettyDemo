@@ -8,12 +8,14 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
+import org.example.client.console.ConsoleCommandManager;
+import org.example.client.console.LoginConsoleCommand;
+import org.example.client.handler.CreateGroupResponseHandler;
 import org.example.client.handler.LoginResponseHandler;
+import org.example.client.handler.LogoutResponseHandler;
 import org.example.client.handler.MessageResponseHandler;
 import org.example.codec.PacketDecoder;
 import org.example.codec.PacketEncoder;
-import org.example.protocol.request.LoginRequestPacket;
-import org.example.protocol.request.MessageRequestPacket;
 import org.example.util.SessionUtil;
 
 import java.util.Scanner;
@@ -34,10 +36,12 @@ public class NettyClient {
                     @Override
                     protected void initChannel(SocketChannel socketChannel) throws Exception {
                         //socketChannel.pipeline().addLast(new LifeCycleTestHandler());
-                        socketChannel.pipeline().addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE,7,4));
+                        socketChannel.pipeline().addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 7, 4));
                         socketChannel.pipeline().addLast(new PacketDecoder());
                         socketChannel.pipeline().addLast(LoginResponseHandler.INSTANCE);
                         socketChannel.pipeline().addLast(MessageResponseHandler.INSTANCE);
+                        socketChannel.pipeline().addLast(CreateGroupResponseHandler.INSTANCE);
+                        socketChannel.pipeline().addLast(LogoutResponseHandler.INSTANCE);
                         socketChannel.pipeline().addLast(new PacketEncoder());
                     }
                 });
@@ -56,7 +60,7 @@ public class NettyClient {
                     } else {
                         int order = (MAX_RETRY - retry) + 1;
                         int delay = 1 << order;
-                        System.out.println("连接失败，第"+order+"次重连");
+                        System.out.println("连接失败，第" + order + "次重连");
                         bootstrap.config()
                                 .group()
                                 .schedule(() -> connect(bootstrap, host, port, retry - 1),
@@ -67,33 +71,19 @@ public class NettyClient {
     }
 
     private static void startConsoleThread(Channel channel) {
+        ConsoleCommandManager consoleCommandManager = new ConsoleCommandManager();
+        LoginConsoleCommand loginConsoleCommand = new LoginConsoleCommand();
         Scanner scanner = new Scanner(System.in);
-        LoginRequestPacket loginRequestPacket = new LoginRequestPacket();
-        loginRequestPacket.setPassword("pwd");
-        new Thread(()->{
-            while (!Thread.interrupted()){
-                if(!SessionUtil.hasLogin(channel)){
-                    System.out.println("输入用户名登录：");
-                    String username = scanner.nextLine();
-                    loginRequestPacket.setUsername(username);
-
-                    channel.writeAndFlush(loginRequestPacket);
-                    waitForLoginResponse();
-
-                }else{
-                    String toUserId = scanner.next();
-                    String message = scanner.next();
-                    channel.writeAndFlush(new MessageRequestPacket(toUserId,message));
+        new Thread(() -> {
+            while (!Thread.interrupted()) {
+                if (!SessionUtil.hasLogin(channel)) {
+                    loginConsoleCommand.exec(scanner, channel);
+                } else {
+                    consoleCommandManager.exec(scanner, channel);
                 }
             }
         }).start();
     }
 
-    private static void waitForLoginResponse() {
-        try {
-            Thread.sleep(1000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
+
 }
